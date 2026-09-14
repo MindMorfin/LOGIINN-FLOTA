@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Control de flotilla · LOGIINN</title>
+<meta name="description" content="Control de estatus de unidades de la flotilla de LOGIINN — Logística Inteligente Integral S.A. de C.V.">
+<meta name="theme-color" content="#1B3A75">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon-64.png" sizes="64x64">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Flotilla">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+  html, body { margin: 0; padding: 0; background: #EDF0F5; min-height: 100%; }
+  body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: contain; }
+</style>
+</head>
+<body>
+<div id="app-root">
+  <style>
+    #app-root {
+      --marino: #1B3A75;
+      --marino-oscuro: #122954;
+      --naranja: #EE7623;
+      --naranja-oscuro: #CF610F;
+      --fondo: #EDF0F5;
+      --papel: #FFFFFF;
+      --tinta: #1A2740;
+      --tinta-suave: #5D6B84;
+      --linea: #CDD5E0;
+      --verde: #1E7A48;
+      --gris: #67758F;
+      --rojo: #B3261E;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+      font-family: var(--sans);
+      color: var(--tinta);
+      background: var(--fondo);
+      max-width: 520px;
+      margin: 0 auto;
+      min-height: 100%;
+      -webkit-font-smoothing: antialiased;
+      position: relative;
+    }
+    #app-root * { box-sizing: border-box; }
+    #app-root button, #app-root input { font-family: inherit; font-size: 100%; }
+
+    /* ---------- Barra superior ---------- */
+    .barra {
+      position: sticky; top: 0; z-index: 20;
+      background: var(--marino); color: #fff;
+      padding: 12px 14px 11px;
+      display: flex; align-items: center; gap: 8px;
+      border-bottom: 3px solid var(--naranja);
+    }
+    .marca { font-size: 20px; font-weight: 800; letter-spacing: -0.8px; line-height: 1; margin: 0 0 4px; }
+    .marca i { font-style: normal; color: var(--naranja); }
+    .barra h1 { margin: 0; font-size: 13.5px; font-weight: 500; opacity: .85; letter-spacing: .1px; }
+    .icono-btn {
+      background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25);
+      color: #fff; width: 41px; height: 41px; border-radius: 10px;
+      display: grid; place-items: center; cursor: pointer; padding: 0; flex: none;
+    }
+    .icono-btn:active { background: var(--naranja); border-color: var(--naranja); }
+    .icono-btn svg { width: 20px; height: 20px; }
+
+    /* ---------- Contenedor ---------- */
+    .pantalla { padding: 14px 14px 110px; }
+    .oculto { display: none !important; }
+    .aviso { font-size: 13px; color: var(--tinta-suave); margin: 0 2px 12px; line-height: 1.45; }
+
+    /* ---------- Tarjeta de unidad ---------- */
+    .unidad {
+      background: var(--papel); border: 1px solid var(--linea);
+      border-left: 7px solid var(--linea); border-radius: 4px;
+      margin-bottom: 10px; overflow: hidden;
+    }
+    .unidad[data-st="disponible"] { border-left-color: var(--verde); }
+    .unidad[data-st="no_disponible"] { border-left-color: var(--gris); }
+    .unidad[data-st="transito_proveedor"] { border-left-color: var(--naranja); }
+    .unidad[data-st="transito_cedis"] { border-left-color: var(--marino); }
+    .unidad[data-st="espera_asistencia"] { border-left-color: var(--rojo); }
+
+    .unidad-cab { display: flex; align-items: center; gap: 12px; padding: 12px 12px 10px; }
+    .numero {
+      background: var(--marino); color: #fff;
+      font-size: 19px; font-weight: 800; letter-spacing: -0.5px;
+      padding: 7px 10px; border-radius: 3px; white-space: nowrap;
+      min-width: 64px; text-align: center;
+    }
+    .datos { min-width: 0; flex: 1; }
+    .operador { font-size: 15px; font-weight: 650; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .placa { font-size: 13px; color: var(--tinta-suave); margin-top: 3px; font-variant-numeric: tabular-nums; letter-spacing: .4px; }
+
+    /* ---------- Selector de estatus (5 opciones) ---------- */
+    .selector {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+      background: var(--linea); border-top: 1px solid var(--linea);
+    }
+    .op {
+      background: var(--papel); border: 0; color: var(--tinta-suave);
+      padding: 11px 8px; font-size: 12.5px; font-weight: 650; line-height: 1.3;
+      cursor: pointer; min-height: 52px; text-align: center;
+    }
+    .op:last-child { grid-column: 1 / -1; }
+    .op:active { background: #EEF1F6; }
+    .op[aria-pressed="true"] { color: #fff; }
+    .op[data-v="disponible"][aria-pressed="true"] { background: var(--verde); }
+    .op[data-v="no_disponible"][aria-pressed="true"] { background: var(--gris); }
+    .op[data-v="transito_proveedor"][aria-pressed="true"] { background: var(--naranja); }
+    .op[data-v="transito_cedis"][aria-pressed="true"] { background: var(--marino); }
+    .op[data-v="espera_asistencia"][aria-pressed="true"] { background: var(--rojo); }
+    .op:focus-visible { outline: 3px solid var(--marino); outline-offset: -3px; }
+
+    /* ---------- Barra inferior ---------- */
+    .barra-baja {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      max-width: 520px; margin: 0 auto;
+      background: var(--papel); border-top: 1px solid var(--linea);
+      padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+      display: flex; align-items: center; gap: 12px; z-index: 20;
+    }
+    .pendientes { font-size: 12.5px; color: var(--tinta-suave); line-height: 1.3; flex: 1; }
+    .btn {
+      background: var(--naranja); color: #fff; border: 0;
+      padding: 14px 20px; border-radius: 6px;
+      font-size: 15px; font-weight: 700; cursor: pointer; min-height: 50px;
+    }
+    .btn:active { background: var(--naranja-oscuro); }
+    .btn[disabled] { background: #A7B0BF; cursor: not-allowed; }
+    .btn-sec {
+      background: var(--papel); color: var(--marino);
+      border: 1px solid var(--linea); padding: 12px 16px; border-radius: 6px;
+      font-size: 14px; font-weight: 650; cursor: pointer; min-height: 46px;
+    }
+    .btn-sec:active { background: #EAEFF6; }
+    .btn-peligro { color: var(--rojo); border-color: #E4C6C4; background: #FDF6F5; }
+
+    /* ---------- Reporte ---------- */
+    .resumen { margin-bottom: 12px; }
+    .res-fila {
+      display: flex; align-items: center; gap: 11px;
+      background: var(--papel); border: 1px solid var(--linea);
+      border-radius: 4px; padding: 9px 12px; margin-bottom: 6px;
+    }
+    .res-barra { width: 9px; height: 26px; border-radius: 2px; flex: none; }
+    .res-nombre { flex: 1; font-size: 13.5px; font-weight: 650; line-height: 1.25; }
+    .res-num { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+    .tabla-envoltura { background: var(--papel); border: 1px solid var(--linea); border-radius: 4px; overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; min-width: 560px; }
+    th { text-align: left; font-size: 11.5px; font-weight: 700; color: #fff; background: var(--marino); padding: 10px; white-space: nowrap; }
+    td { padding: 11px 10px; font-size: 13px; border-top: 1px solid #E3E8EF; vertical-align: middle; }
+    tr:nth-child(even) td { background: #F8FAFC; }
+    td.col-unidad { font-weight: 750; white-space: nowrap; color: var(--marino); }
+    td.col-placa { font-variant-numeric: tabular-nums; letter-spacing: .4px; white-space: nowrap; }
+    .chip { display: inline-block; padding: 4px 9px; border-radius: 3px; font-size: 11.5px; font-weight: 700; color: #fff; white-space: nowrap; }
+    .chip[data-st="disponible"] { background: var(--verde); }
+    .chip[data-st="no_disponible"] { background: var(--gris); }
+    .chip[data-st="transito_proveedor"] { background: var(--naranja); }
+    .chip[data-st="transito_cedis"] { background: var(--marino); }
+    .chip[data-st="espera_asistencia"] { background: var(--rojo); }
+    .chip[data-st="sin"] { background: #98A2B3; }
+
+    .acciones-reporte { display: flex; gap: 8px; margin-bottom: 12px; }
+    .acciones-reporte .btn, .acciones-reporte .btn-sec { flex: 1; padding-left: 10px; padding-right: 10px; }
+    .acciones-reporte .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+    .acciones-reporte svg { width: 18px; height: 18px; flex: none; }
+
+    /* ---------- Configuración ---------- */
+    .bloque { background: var(--papel); border: 1px solid var(--linea); border-radius: 4px; padding: 12px; margin-bottom: 10px; }
+    .bloque h3 { margin: 0 0 10px; font-size: 14px; font-weight: 700; color: var(--marino); }
+    .campo { margin-bottom: 9px; }
+    .campo label { display: block; font-size: 12px; color: var(--tinta-suave); margin-bottom: 4px; font-weight: 600; }
+    .campo input {
+      width: 100%; padding: 11px 10px; border: 1px solid var(--linea);
+      border-radius: 4px; background: #FBFCFE; color: var(--tinta); min-height: 44px;
+    }
+    .campo input:focus { outline: 2px solid var(--naranja); outline-offset: -1px; background: #fff; }
+    .fila-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .acciones-bloque { display: flex; gap: 8px; margin-top: 4px; }
+    .acciones-bloque .btn-sec { flex: 1; }
+
+    .vacio { background: var(--papel); border: 1px dashed var(--linea); border-radius: 4px; padding: 26px 18px; text-align: center; color: var(--tinta-suave); font-size: 14px; line-height: 1.5; }
+
+    .aviso-toast {
+      position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%);
+      background: var(--marino-oscuro); color: #fff; padding: 11px 18px;
+      border-radius: 6px; font-size: 13.5px; font-weight: 600;
+      z-index: 40; opacity: 0; pointer-events: none; transition: opacity .18s ease;
+      max-width: 90%; text-align: center;
+    }
+    .aviso-toast.visible { opacity: 1; }
+
+    /* ---------- Tutorial ---------- */
+    .tut-fondo {
+      position: fixed; inset: 0; z-index: 60;
+      background: rgba(18, 41, 84, .82);
+      display: flex; align-items: center; justify-content: center; padding: 16px;
+    }
+    .tut-caja {
+      background: var(--papel); width: 100%; max-width: 460px;
+      max-height: 92vh; border-radius: 8px; overflow: hidden;
+      display: flex; flex-direction: column; border-top: 4px solid var(--naranja);
+    }
+    .tut-top { display: flex; align-items: center; padding: 12px 14px 0; gap: 10px; }
+    .tut-puntos { display: flex; gap: 6px; flex: 1; }
+    .tut-punto { width: 26px; height: 4px; border-radius: 2px; background: var(--linea); }
+    .tut-punto.activo { background: var(--naranja); }
+    .tut-punto.hecho { background: var(--marino); }
+    .tut-saltar { background: none; border: 0; color: var(--tinta-suave); font-size: 13px; font-weight: 600; cursor: pointer; padding: 6px 2px; }
+    .tut-cuerpo { padding: 12px 16px 4px; overflow-y: auto; }
+    .tut-paso { font-size: 12px; color: var(--naranja-oscuro); font-weight: 700; margin: 0 0 4px; }
+    .tut-cuerpo h2 { margin: 0 0 8px; font-size: 19px; font-weight: 750; letter-spacing: -0.3px; color: var(--marino); }
+    .tut-cuerpo p { margin: 0 0 12px; font-size: 14.5px; line-height: 1.55; color: var(--tinta); }
+    .tut-cuerpo p.menor { font-size: 13px; color: var(--tinta-suave); }
+    .tut-demo { background: var(--fondo); border: 1px solid var(--linea); border-radius: 5px; padding: 12px; margin-bottom: 12px; }
+    .tut-demo .unidad { margin-bottom: 0; }
+    .tut-pie {
+      display: flex; gap: 10px; padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
+      border-top: 1px solid var(--linea); background: var(--papel);
+    }
+    .tut-pie .btn-sec { flex: none; min-width: 92px; }
+    .tut-pie .btn { flex: 1; }
+
+    .tut-lista { list-style: none; margin: 0 0 12px; padding: 0; }
+    .tut-lista li { display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; border-top: 1px solid var(--linea); }
+    .tut-lista li:first-child { border-top: 0; }
+    .tut-marca { width: 11px; height: 36px; border-radius: 2px; flex: none; margin-top: 2px; }
+    .tut-lista b { display: block; font-size: 13.5px; font-weight: 700; margin-bottom: 2px; }
+    .tut-lista span { font-size: 12.5px; color: var(--tinta-suave); line-height: 1.45; }
+    .tut-tabla { font-size: 11px; }
+    .tut-tabla table { min-width: 0; }
+    .tut-tabla th { font-size: 10px; padding: 7px 6px; }
+    .tut-tabla td { font-size: 10.5px; padding: 7px 6px; }
+    .tut-tabla .chip { font-size: 9.5px; padding: 3px 5px; }
+    .tut-señal {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: var(--marino); color: #fff; border-radius: 8px;
+      padding: 7px 11px 7px 8px; font-size: 13px; font-weight: 650;
+    }
+    .tut-señal svg { width: 17px; height: 17px; }
+
+    @media (prefers-reduced-motion: reduce) { #app-root * { transition: none !important; } }
+  </style>
+
+  <div class="barra">
+    <div style="flex:1; min-width:0">
+      <p class="marca">LOG<i>II</i>NN</p>
+      <h1 id="titulo-vista">Estatus de unidades</h1>
+    </div>
+    <button class="icono-btn" id="btn-ayuda" title="Cómo usar la app" aria-label="Cómo usar la app">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"></path>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+    </button>
+    <button class="icono-btn" id="btn-config" title="Configuración" aria-label="Configuración">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      </svg>
+    </button>
+  </div>
+
+  <div class="pantalla" id="vista-unidades">
+    <p class="aviso">Marca el estatus de cada unidad y genera el reporte.</p>
+    <div id="lista-unidades"></div>
+  </div>
+
+  <div class="pantalla oculto" id="vista-reporte">
+    <div class="acciones-reporte">
+      <button class="btn" id="btn-compartir">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"></path>
+          <polyline points="16 6 12 2 8 6"></polyline>
+          <line x1="12" y1="2" x2="12" y2="15"></line>
+        </svg>
+        Compartir imagen
+      </button>
+      <button class="btn-sec" id="btn-copiar">Copiar texto</button>
+    </div>
+    <div class="resumen" id="resumen-reporte"></div>
+    <div class="tabla-envoltura">
+      <table>
+        <thead>
+          <tr><th>Operador</th><th>Unidad</th><th>Placa tracto</th><th>Estatus de la unidad</th></tr>
+        </thead>
+        <tbody id="cuerpo-tabla"></tbody>
+      </table>
+    </div>
+    <p class="aviso" id="sello-reporte" style="margin-top:10px"></p>
+  </div>
+
+  <div class="pantalla oculto" id="vista-config">
+    <p class="aviso">Edita los datos de cada unidad o agrega una nueva. Los cambios se guardan en este dispositivo.</p>
+    <div id="lista-config"></div>
+    <div class="bloque" style="border-style:dashed">
+      <h3>Agregar unidad</h3>
+      <div class="fila-2">
+        <div class="campo">
+          <label for="nuevo-unidad">Número de unidad</label>
+          <input id="nuevo-unidad" placeholder="T-105" autocomplete="off">
+        </div>
+        <div class="campo">
+          <label for="nuevo-placa">Placa tracto</label>
+          <input id="nuevo-placa" placeholder="12AB3C" autocomplete="off">
+        </div>
+      </div>
+      <div class="campo">
+        <label for="nuevo-operador">Operador</label>
+        <input id="nuevo-operador" placeholder="Nombre del operador" autocomplete="off">
+      </div>
+      <button class="btn" style="width:100%" id="btn-agregar">Agregar unidad</button>
+    </div>
+  </div>
+
+  <div class="barra-baja" id="barra-baja">
+    <div class="pendientes" id="texto-pendientes"></div>
+    <button class="btn" id="btn-principal">Ver reporte</button>
+  </div>
+
+  <div class="aviso-toast" id="toast"></div>
+
+  <div class="tut-fondo oculto" id="tutorial" role="dialog" aria-modal="true" aria-label="Cómo usar el control de flotilla">
+    <div class="tut-caja">
+      <div class="tut-top">
+        <div class="tut-puntos" id="tut-puntos"></div>
+        <button class="tut-saltar" id="tut-saltar">Saltar</button>
+      </div>
+      <div class="tut-cuerpo" id="tut-cuerpo"></div>
+      <div class="tut-pie">
+        <button class="btn-sec" id="tut-atras">Atrás</button>
+        <button class="btn" id="tut-siguiente">Siguiente</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var CLAVE = 'flotilla:unidades';
+  var CLAVE_TUT = 'flotilla:tutorial-visto';
+  var ESTADOS = [
+    { v: 'disponible', t: 'Disponible', c: '#1E7A48' },
+    { v: 'no_disponible', t: 'No disponible', c: '#67758F' },
+    { v: 'transito_proveedor', t: 'En tránsito a proveedor', c: '#EE7623' },
+    { v: 'transito_cedis', t: 'En tránsito a CEDIS con carga', c: '#1B3A75' },
+    { v: 'espera_asistencia', t: 'En espera de asistencia', c: '#B3261E' }
+  ];
+  var unidades = [];
+  var vista = 'unidades';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  };
+  var etiqueta = function (v) {
+    for (var i = 0; i < ESTADOS.length; i++) if (ESTADOS[i].v === v) return ESTADOS[i].t;
+    return 'Sin marcar';
+  };
+
+  var almacen = {
+    get: function (k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { window.localStorage.setItem(k, v); return true; } catch (e) { return false; } }
+  };
+  function leer(clave) { return Promise.resolve(almacen.get(clave)); }
+  function guardar() {
+    var ok = almacen.set(CLAVE, JSON.stringify(unidades));
+    if (!ok) avisar('No se pudieron guardar los cambios en este dispositivo');
+    return Promise.resolve(ok);
+  }
+
+  var tiempoToast;
+  function avisar(msg) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.classList.add('visible');
+    clearTimeout(tiempoToast);
+    tiempoToast = setTimeout(function () { t.classList.remove('visible'); }, 2200);
+  }
+
+  function semilla() {
+    return [
+      { id: 'u1', unidad: 'T-101', operador: 'Juan Ramírez', placa: '92AF7H', estatus: null },
+      { id: 'u2', unidad: 'T-102', operador: 'Miguel Ángel Soto', placa: '84KD2P', estatus: null },
+      { id: 'u3', unidad: 'T-103', operador: 'Ricardo Vega', placa: '55JN9R', estatus: null }
+    ];
+  }
+
+  function pintarUnidades() {
+    var cont = $('lista-unidades');
+    if (!unidades.length) {
+      cont.innerHTML = '<div class="vacio">Todavía no hay unidades registradas.<br>Agrega la primera desde el menú de configuración.</div>';
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < unidades.length; i++) {
+      var u = unidades[i];
+      html += '<div class="unidad" data-st="' + esc(u.estatus || '') + '">' +
+        '<div class="unidad-cab">' +
+          '<div class="numero">' + esc(u.unidad || '—') + '</div>' +
+          '<div class="datos">' +
+            '<div class="operador">' + esc(u.operador || 'Sin operador asignado') + '</div>' +
+            '<div class="placa">Placa ' + esc(u.placa || '—') + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="selector" role="group" aria-label="Estatus de ' + esc(u.unidad) + '">';
+      for (var j = 0; j < ESTADOS.length; j++) {
+        var e = ESTADOS[j];
+        html += '<button class="op" data-id="' + esc(u.id) + '" data-v="' + e.v + '" ' +
+          'aria-pressed="' + (u.estatus === e.v ? 'true' : 'false') + '">' + e.t + '</button>';
+      }
+      html += '</div></div>';
+    }
+    cont.innerHTML = html;
+  }
+
+  function pendientes() {
+    var n = 0;
+    for (var i = 0; i < unidades.length; i++) if (!unidades[i].estatus) n++;
+    return n;
+  }
+
+  function actualizarBarra() {
+    var txt = $('texto-pendientes'), btn = $('btn-principal');
+    if (vista === 'unidades') {
+      var p = pendientes();
+      txt.textContent = !unidades.length ? 'Sin unidades registradas'
+        : p === 0 ? 'Las ' + unidades.length + ' unidades están marcadas'
+        : p + ' de ' + unidades.length + (p === 1 ? ' unidad sin marcar' : ' unidades sin marcar');
+      btn.textContent = 'Ver reporte';
+      btn.disabled = !unidades.length;
+    } else if (vista === 'reporte') {
+      txt.textContent = 'Reporte generado con los estatus marcados';
+      btn.textContent = 'Volver'; btn.disabled = false;
+    } else {
+      txt.textContent = unidades.length + (unidades.length === 1 ? ' unidad registrada' : ' unidades registradas');
+      btn.textContent = 'Listo'; btn.disabled = false;
+    }
+  }
+
+  function pintarReporte() {
+    var cuentas = {}, i;
+    for (i = 0; i < ESTADOS.length; i++) cuentas[ESTADOS[i].v] = 0;
+    var sinMarcar = 0, filas = '';
+    for (i = 0; i < unidades.length; i++) {
+      var u = unidades[i];
+      if (cuentas[u.estatus] !== undefined) cuentas[u.estatus]++; else sinMarcar++;
+      filas += '<tr>' +
+        '<td>' + esc(u.operador || '—') + '</td>' +
+        '<td class="col-unidad">' + esc(u.unidad || '—') + '</td>' +
+        '<td class="col-placa">' + esc(u.placa || '—') + '</td>' +
+        '<td><span class="chip" data-st="' + esc(u.estatus || 'sin') + '">' + etiqueta(u.estatus) + '</span></td>' +
+      '</tr>';
+    }
+    $('cuerpo-tabla').innerHTML = filas || '<tr><td colspan="4" style="text-align:center;color:#5D6B84">Sin unidades</td></tr>';
+
+    var res = '';
+    for (i = 0; i < ESTADOS.length; i++) {
+      res += '<div class="res-fila">' +
+        '<span class="res-barra" style="background:' + ESTADOS[i].c + '"></span>' +
+        '<span class="res-nombre">' + ESTADOS[i].t + '</span>' +
+        '<span class="res-num" style="color:' + ESTADOS[i].c + '">' + cuentas[ESTADOS[i].v] + '</span>' +
+      '</div>';
+    }
+    if (sinMarcar) {
+      res += '<div class="res-fila">' +
+        '<span class="res-barra" style="background:#98A2B3"></span>' +
+        '<span class="res-nombre">Sin marcar</span>' +
+        '<span class="res-num" style="color:#98A2B3">' + sinMarcar + '</span>' +
+      '</div>';
+    }
+    $('resumen-reporte').innerHTML = res;
+
+    var f = new Date();
+    $('sello-reporte').textContent = 'Corte del ' + f.toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' }) +
+      ' a las ' + f.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) + ' h.';
+  }
+
+  function pintarConfig() {
+    var html = '';
+    for (var i = 0; i < unidades.length; i++) {
+      var u = unidades[i];
+      html += '<div class="bloque">' +
+        '<h3>Unidad ' + esc(u.unidad || '(sin número)') + '</h3>' +
+        '<div class="fila-2">' +
+          '<div class="campo"><label>Número de unidad</label><input data-campo="unidad" data-id="' + esc(u.id) + '" value="' + esc(u.unidad) + '"></div>' +
+          '<div class="campo"><label>Placa tracto</label><input data-campo="placa" data-id="' + esc(u.id) + '" value="' + esc(u.placa) + '"></div>' +
+        '</div>' +
+        '<div class="campo"><label>Operador</label><input data-campo="operador" data-id="' + esc(u.id) + '" value="' + esc(u.operador) + '"></div>' +
+        '<div class="acciones-bloque">' +
+          '<button class="btn-sec" data-guardar="' + esc(u.id) + '">Guardar cambios</button>' +
+          '<button class="btn-sec btn-peligro" data-borrar="' + esc(u.id) + '">Eliminar</button>' +
+        '</div></div>';
+    }
+    $('lista-config').innerHTML = html;
+  }
+
+  function ir(v) {
+    vista = v;
+    $('vista-unidades').classList.toggle('oculto', v !== 'unidades');
+    $('vista-reporte').classList.toggle('oculto', v !== 'reporte');
+    $('vista-config').classList.toggle('oculto', v !== 'config');
+    $('titulo-vista').textContent = v === 'unidades' ? 'Estatus de unidades'
+      : v === 'reporte' ? 'Reporte de flotilla' : 'Configuración';
+    $('btn-config').classList.toggle('oculto', v === 'config');
+    if (v === 'unidades') pintarUnidades();
+    if (v === 'reporte') pintarReporte();
+    if (v === 'config') pintarConfig();
+    actualizarBarra();
+    window.scrollTo(0, 0);
+  }
+
+  /* ================= TUTORIAL ================= */
+  var demoEstatus = null;
+
+  function demoTarjeta() {
+    var h = '<div class="unidad" data-st="' + (demoEstatus || '') + '">' +
+      '<div class="unidad-cab">' +
+        '<div class="numero">T-101</div>' +
+        '<div class="datos"><div class="operador">Juan Ramírez</div><div class="placa">Placa 92AF7H</div></div>' +
+      '</div><div class="selector">';
+    for (var i = 0; i < ESTADOS.length; i++) {
+      h += '<button class="op" data-demo="' + ESTADOS[i].v + '" aria-pressed="' +
+        (demoEstatus === ESTADOS[i].v ? 'true' : 'false') + '">' + ESTADOS[i].t + '</button>';
+    }
+    return h + '</div></div>';
+  }
+
+  var PASOS = [
+    {
+      titulo: 'Control de flotilla LOGIINN',
+      html: function () {
+        return '<p>Con esta app registras en qué situación está cada tractocamión y generas la tabla de estatus lista para pasarla a tráfico. Toma menos de un minuto al día.</p>' +
+          '<div class="tut-demo">' + demoTarjeta() + '</div>' +
+          '<p class="menor">El tutorial dura cinco pasos. Puedes volver a verlo cuando quieras con el botón de interrogación de la barra azul.</p>';
+      }
+    },
+    {
+      titulo: 'Toca el estatus de cada unidad',
+      html: function () {
+        return '<p>Cada tarjeta es una unidad. Arriba ves el número, el operador asignado y la placa del tracto. Abajo toca el estatus que corresponda.</p>' +
+          '<div class="tut-demo">' + demoTarjeta() + '<p class="menor" style="margin:10px 0 0">Pruébalo aquí: toca cualquiera de los cinco.</p></div>' +
+          '<p class="menor">Si te equivocaste, toca el mismo botón otra vez y la unidad vuelve a quedar sin marcar. La franja de color del lado izquierdo te dice de un vistazo cómo quedó.</p>';
+      }
+    },
+    {
+      titulo: 'Qué significa cada estatus',
+      html: function () {
+        return '<p>Usa siempre el mismo criterio para que el reporte sirva igual en toda la empresa.</p>' +
+          '<ul class="tut-lista">' +
+            '<li><span class="tut-marca" style="background:#1E7A48"></span><div><b>Disponible</b><span>Unidad y operador listos en patio para que se les asigne viaje.</span></div></li>' +
+            '<li><span class="tut-marca" style="background:#67758F"></span><div><b>No disponible</b><span>Fuera de operación: descanso del operador, taller, mantenimiento o sin operador asignado.</span></div></li>' +
+            '<li><span class="tut-marca" style="background:#EE7623"></span><div><b>En tránsito a proveedor</b><span>Va en camino a recoger producto. Todavía sin carga.</span></div></li>' +
+            '<li><span class="tut-marca" style="background:#1B3A75"></span><div><b>En tránsito a CEDIS con carga</b><span>Ya cargó y va rumbo al centro de distribución para entregar.</span></div></li>' +
+            '<li><span class="tut-marca" style="background:#B3261E"></span><div><b>En espera de asistencia</b><span>Detenida en ruta por falla, accidente o cualquier motivo que requiera apoyo. Avisa de inmediato a tráfico.</span></div></li>' +
+          '</ul>';
+      }
+    },
+    {
+      titulo: 'Genera el reporte',
+      html: function () {
+        return '<p>Abajo siempre ves cuántas unidades te faltan por marcar. Cuando termines, toca <b>Ver reporte</b> y obtienes la tabla con operador, unidad, placa y estatus, además del conteo por categoría y la hora del corte.</p>' +
+          '<div class="tut-demo tut-tabla" style="padding:0;overflow:hidden">' +
+            '<table><thead><tr><th>Operador</th><th>Unidad</th><th>Placa</th><th>Estatus</th></tr></thead><tbody>' +
+            '<tr><td>Juan Ramírez</td><td class="col-unidad">T-101</td><td class="col-placa">92AF7H</td><td><span class="chip" data-st="disponible">Disponible</span></td></tr>' +
+            '<tr><td>Miguel Á. Soto</td><td class="col-unidad">T-102</td><td class="col-placa">84KD2P</td><td><span class="chip" data-st="transito_cedis">En tránsito a CEDIS con carga</span></td></tr>' +
+            '<tr><td>Ricardo Vega</td><td class="col-unidad">T-103</td><td class="col-placa">55JN9R</td><td><span class="chip" data-st="espera_asistencia">En espera de asistencia</span></td></tr>' +
+            '</tbody></table>' +
+          '</div>' +
+          '<p>Arriba del reporte tienes <b>Compartir imagen</b>: arma una foto del reporte completo y abre el menú del celular para mandarla por WhatsApp. <b>Copiar texto</b> pega los mismos datos como mensaje, útil si en CEDIS los van a vaciar a un Excel.</p>' +
+          '<p class="menor">Si la tabla no cabe en la pantalla, deslízala con el dedo hacia los lados. El botón de abajo dice <b>Volver</b> y te regresa a la lista para seguir marcando.</p>';
+      }
+    },
+    {
+      titulo: 'Da de alta tus unidades',
+      html: function () {
+        return '<p>Entra al engrane de la barra azul para trabajar con tu propia flotilla:</p>' +
+          '<div class="tut-demo" style="text-align:center">' +
+            '<span class="tut-señal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>Configuración</span>' +
+          '</div>' +
+          '<ul class="tut-lista">' +
+            '<li><span class="tut-marca" style="background:#1B3A75"></span><div><b>Corregir datos</b><span>Cambia el número de unidad, la placa o el operador y toca Guardar cambios en esa unidad.</span></div></li>' +
+            '<li><span class="tut-marca" style="background:#EE7623"></span><div><b>Agregar unidad</b><span>Hasta abajo llena los tres campos y toca Agregar unidad. El número es obligatorio.</span></div></li>' +
+            '<li><span class="tut-marca" style="background:#B3261E"></span><div><b>Eliminar</b><span>Quita las unidades que ya no estén en la flotilla. Te pide confirmación porque no se puede deshacer.</span></div></li>' +
+          '</ul>' +
+          '<p class="menor">Las tres unidades de ejemplo (T-101 a T-103) son solo de muestra: edítalas o elimínalas y captura las tuyas. Todo queda guardado en este teléfono.</p>';
+      }
+    }
+  ];
+
+  var pasoActual = 0;
+
+  function pintarTutorial() {
+    var p = PASOS[pasoActual];
+    $('tut-cuerpo').innerHTML =
+      '<p class="tut-paso">Paso ' + (pasoActual + 1) + ' de ' + PASOS.length + '</p>' +
+      '<h2>' + p.titulo + '</h2>' + p.html();
+    var pts = '';
+    for (var i = 0; i < PASOS.length; i++) {
+      pts += '<span class="tut-punto ' + (i === pasoActual ? 'activo' : (i < pasoActual ? 'hecho' : '')) + '"></span>';
+    }
+    $('tut-puntos').innerHTML = pts;
+    $('tut-atras').style.visibility = pasoActual === 0 ? 'hidden' : 'visible';
+    $('tut-siguiente').textContent = pasoActual === PASOS.length - 1 ? 'Empezar a usarla' : 'Siguiente';
+    $('tut-saltar').style.visibility = pasoActual === PASOS.length - 1 ? 'hidden' : 'visible';
+    $('tut-cuerpo').scrollTop = 0;
+  }
+
+  function abrirTutorial() {
+    pasoActual = 0; demoEstatus = null;
+    pintarTutorial();
+    $('tutorial').classList.remove('oculto');
+  }
+
+  function cerrarTutorial() {
+    $('tutorial').classList.add('oculto');
+    almacen.set(CLAVE_TUT, 'si');
+  }
+
+  $('tut-siguiente').addEventListener('click', function () {
+    if (pasoActual === PASOS.length - 1) cerrarTutorial();
+    else { pasoActual++; pintarTutorial(); }
+  });
+  $('tut-atras').addEventListener('click', function () {
+    if (pasoActual > 0) { pasoActual--; pintarTutorial(); }
+  });
+  $('tut-saltar').addEventListener('click', cerrarTutorial);
+  $('btn-ayuda').addEventListener('click', abrirTutorial);
+
+  $('tut-cuerpo').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-demo]');
+    if (!b) return;
+    var v = b.getAttribute('data-demo');
+    demoEstatus = demoEstatus === v ? null : v;
+    pintarTutorial();
+  });
+
+  /* ================= EVENTOS APP ================= */
+  $('lista-unidades').addEventListener('click', function (ev) {
+    var b = ev.target.closest('.op');
+    if (!b) return;
+    var id = b.getAttribute('data-id'), v = b.getAttribute('data-v');
+    for (var i = 0; i < unidades.length; i++) {
+      if (unidades[i].id === id) { unidades[i].estatus = unidades[i].estatus === v ? null : v; break; }
+    }
+    pintarUnidades();
+    actualizarBarra();
+    guardar();
+  });
+
+  $('lista-config').addEventListener('click', function (ev) {
+    var g = ev.target.closest('[data-guardar]');
+    if (g) {
+      var id = g.getAttribute('data-guardar');
+      var campos = $('lista-config').querySelectorAll('input[data-id="' + id + '"]');
+      for (var i = 0; i < unidades.length; i++) {
+        if (unidades[i].id !== id) continue;
+        for (var j = 0; j < campos.length; j++) {
+          unidades[i][campos[j].getAttribute('data-campo')] = campos[j].value.trim();
+        }
+      }
+      guardar().then(function (ok) { if (ok !== false) avisar('Cambios guardados'); });
+      pintarConfig();
+      return;
+    }
+    var d = ev.target.closest('[data-borrar]');
+    if (d) {
+      var idb = d.getAttribute('data-borrar'), nombre = '';
+      for (var k = 0; k < unidades.length; k++) if (unidades[k].id === idb) nombre = unidades[k].unidad;
+      if (!window.confirm('¿Eliminar la unidad ' + nombre + '? Esta acción no se puede deshacer.')) return;
+      unidades = unidades.filter(function (u) { return u.id !== idb; });
+      guardar(); pintarConfig(); actualizarBarra();
+      avisar('Unidad eliminada');
+    }
+  });
+
+  $('btn-agregar').addEventListener('click', function () {
+    var nu = $('nuevo-unidad').value.trim();
+    var np = $('nuevo-placa').value.trim();
+    var no = $('nuevo-operador').value.trim();
+    if (!nu) { avisar('Escribe el número de unidad para agregarla'); $('nuevo-unidad').focus(); return; }
+    unidades.push({ id: 'u' + Date.now() + Math.floor(Math.random() * 1000), unidad: nu, placa: np, operador: no, estatus: null });
+    $('nuevo-unidad').value = ''; $('nuevo-placa').value = ''; $('nuevo-operador').value = '';
+    guardar(); pintarConfig(); actualizarBarra();
+    avisar('Unidad ' + nu + ' agregada');
+  });
+
+  $('btn-config').addEventListener('click', function () { ir('config'); });
+  $('btn-principal').addEventListener('click', function () { ir(vista === 'unidades' ? 'reporte' : 'unidades'); });
+
+  /* ================= EXPORTAR ================= */
+  function fechaCorte() {
+    var f = new Date();
+    return f.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
+      ' · ' + f.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) + ' h';
+  }
+
+  function textoReporte() {
+    var l = ['*ESTATUS DE FLOTILLA — LOGIINN*', fechaCorte(), ''];
+    for (var i = 0; i < unidades.length; i++) {
+      var u = unidades[i];
+      l.push((u.unidad || '—') + ' · ' + (u.placa || '—') + ' · ' + (u.operador || 'Sin operador'));
+      l.push('   ' + etiqueta(u.estatus));
+    }
+    l.push('');
+    var res = [];
+    for (var j = 0; j < ESTADOS.length; j++) {
+      var n = 0;
+      for (var k = 0; k < unidades.length; k++) if (unidades[k].estatus === ESTADOS[j].v) n++;
+      if (n) res.push(ESTADOS[j].t + ': ' + n);
+    }
+    l.push(res.join(' | '));
+    return l.join('\n');
+  }
+
+  var TIPO = '-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+
+  function caja(g, x, y, w, h, r, color) {
+    g.fillStyle = color;
+    g.beginPath();
+    g.moveTo(x + r, y);
+    g.lineTo(x + w - r, y);
+    g.quadraticCurveTo(x + w, y, x + w, y + r);
+    g.lineTo(x + w, y + h - r);
+    g.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    g.lineTo(x + r, y + h);
+    g.quadraticCurveTo(x, y + h, x, y + h - r);
+    g.lineTo(x, y + r);
+    g.quadraticCurveTo(x, y, x + r, y);
+    g.closePath();
+    g.fill();
+  }
+
+  function recorta(g, txt, max) {
+    if (g.measureText(txt).width <= max) return txt;
+    var t = txt;
+    while (t.length > 1 && g.measureText(t + '…').width > max) t = t.slice(0, -1);
+    return t + '…';
+  }
+
+  function dibujarReporte() {
+    var A = 1240, P = 48, DER = A - P;
+    var hCab = 196, hRes = 148, hEnc = 64, hFila = 78;
+    var n = Math.max(unidades.length, 1);
+    var alto = hCab + hRes + hEnc + hFila * n + 104;
+
+    var c = document.createElement('canvas');
+    c.width = A; c.height = alto;
+    var g = c.getContext('2d');
+
+    g.fillStyle = '#FFFFFF';
+    g.fillRect(0, 0, A, alto);
+
+    /* Encabezado */
+    g.fillStyle = '#1B3A75';
+    g.fillRect(0, 0, A, hCab);
+    g.fillStyle = '#EE7623';
+    g.fillRect(0, hCab - 8, A, 8);
+
+    g.textBaseline = 'alphabetic';
+    g.font = '800 54px ' + TIPO;
+    var x = P;
+    g.fillStyle = '#FFFFFF'; g.fillText('LOG', x, 82); x += g.measureText('LOG').width;
+    g.fillStyle = '#EE7623'; g.fillText('II', x, 82); x += g.measureText('II').width;
+    g.fillStyle = '#FFFFFF'; g.fillText('NN', x, 82);
+
+    g.font = '500 22px ' + TIPO;
+    g.fillStyle = 'rgba(255,255,255,.72)';
+    g.fillText('Logística Inteligente Integral S.A. de C.V.', P, 116);
+
+    g.font = '700 30px ' + TIPO;
+    g.fillStyle = '#FFFFFF';
+    g.fillText('Estatus de la flotilla', P, 162);
+
+    g.font = '600 26px ' + TIPO;
+    g.fillStyle = 'rgba(255,255,255,.85)';
+    g.textAlign = 'right';
+    g.fillText(fechaCorte(), DER, 162);
+    g.textAlign = 'left';
+
+    /* Resumen por estatus */
+    var cuentas = {}, i;
+    for (i = 0; i < ESTADOS.length; i++) cuentas[ESTADOS[i].v] = 0;
+    for (i = 0; i < unidades.length; i++) if (cuentas[unidades[i].estatus] !== undefined) cuentas[unidades[i].estatus]++;
+
+    var yRes = hCab + 30, anchoUtil = DER - P, sep = 12;
+    var wCaja = (anchoUtil - sep * (ESTADOS.length - 1)) / ESTADOS.length;
+    for (i = 0; i < ESTADOS.length; i++) {
+      var xc = P + i * (wCaja + sep);
+      caja(g, xc, yRes, wCaja, 104, 8, '#F1F4F8');
+      caja(g, xc, yRes, wCaja, 7, 3, ESTADOS[i].c);
+      g.fillStyle = ESTADOS[i].c;
+      g.font = '800 38px ' + TIPO;
+      g.fillText(String(cuentas[ESTADOS[i].v]), xc + 16, yRes + 56);
+      g.fillStyle = '#4A5769';
+      g.font = '600 16px ' + TIPO;
+      var pal = ESTADOS[i].t.split(' '), l1 = '', l2 = '';
+      for (var p = 0; p < pal.length; p++) {
+        var tentativa = l1 ? l1 + ' ' + pal[p] : pal[p];
+        if (!l2 && g.measureText(tentativa).width <= wCaja - 32) l1 = tentativa;
+        else l2 = l2 ? l2 + ' ' + pal[p] : pal[p];
+      }
+      g.fillText(recorta(g, l1, wCaja - 32), xc + 16, yRes + 80);
+      if (l2) g.fillText(recorta(g, l2, wCaja - 32), xc + 16, yRes + 98);
+    }
+
+    /* Tabla */
+    var cOp = P, wOp = 400, cUn = 470, wUn = 130, cPl = 620, wPl = 180, cEs = 820, wEs = DER - 820;
+    var yT = hCab + hRes;
+
+    g.fillStyle = '#1B3A75';
+    g.fillRect(P, yT, DER - P, hEnc);
+    g.fillStyle = '#FFFFFF';
+    g.font = '700 22px ' + TIPO;
+    g.fillText('Operador', cOp + 16, yT + 41);
+    g.fillText('Unidad', cUn, yT + 41);
+    g.fillText('Placa tracto', cPl, yT + 41);
+    g.fillText('Estatus de la unidad', cEs, yT + 41);
+
+    var y = yT + hEnc;
+    if (!unidades.length) {
+      g.fillStyle = '#6B7788';
+      g.font = '500 24px ' + TIPO;
+      g.fillText('Sin unidades registradas', cOp + 16, y + 48);
+    }
+    for (i = 0; i < unidades.length; i++) {
+      var u = unidades[i];
+      if (i % 2 === 1) { g.fillStyle = '#F7F9FB'; g.fillRect(P, y, DER - P, hFila); }
+      g.strokeStyle = '#E1E6ED'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(P, y + 0.5); g.lineTo(DER, y + 0.5); g.stroke();
+
+      g.fillStyle = '#1A2740';
+      g.font = '500 25px ' + TIPO;
+      g.fillText(recorta(g, u.operador || '—', wOp - 32), cOp + 16, y + 50);
+
+      g.font = '750 25px ' + TIPO;
+      g.fillStyle = '#1B3A75';
+      g.fillText(recorta(g, u.unidad || '—', wUn - 16), cUn, y + 50);
+
+      g.font = '500 25px ' + TIPO;
+      g.fillStyle = '#1A2740';
+      g.fillText(recorta(g, u.placa || '—', wPl - 16), cPl, y + 50);
+
+      var col = '#98A2B3', txt = etiqueta(u.estatus);
+      for (var e = 0; e < ESTADOS.length; e++) if (ESTADOS[e].v === u.estatus) col = ESTADOS[e].c;
+      var fs = 22;
+      g.font = '700 ' + fs + 'px ' + TIPO;
+      while (g.measureText(txt).width > wEs - 36 && fs > 15) {
+        fs -= 1;
+        g.font = '700 ' + fs + 'px ' + TIPO;
+      }
+      var wChip = g.measureText(txt).width + 28;
+      caja(g, cEs, y + 20, wChip, 40, 5, col);
+      g.fillStyle = '#FFFFFF';
+      g.fillText(txt, cEs + 14, y + 48);
+
+      y += hFila;
+    }
+
+    g.strokeStyle = '#E1E6ED';
+    g.beginPath(); g.moveTo(P, y + 0.5); g.lineTo(DER, y + 0.5); g.stroke();
+
+    g.fillStyle = '#7A8699';
+    g.font = '500 20px ' + TIPO;
+    g.fillText('Reporte generado desde la app Control de flotilla · ' + unidades.length +
+      (unidades.length === 1 ? ' unidad' : ' unidades'), P, y + 44);
+
+    return c;
+  }
+
+  function lienzoABlob(c) {
+    var datos = c.toDataURL('image/png');
+    var bin = atob(datos.split(',')[1]);
+    var arr = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: 'image/png' });
+  }
+
+  function nombreArchivo() {
+    var f = new Date();
+    function dd(v) { return (v < 10 ? '0' : '') + v; }
+    return 'flotilla-' + f.getFullYear() + dd(f.getMonth() + 1) + dd(f.getDate()) +
+      '-' + dd(f.getHours()) + dd(f.getMinutes()) + '.png';
+  }
+
+  function descargar(blob) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = nombreArchivo();
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }
+
+  $('btn-compartir').addEventListener('click', function () {
+    var blob, archivo;
+    try {
+      blob = lienzoABlob(dibujarReporte());
+      archivo = new File([blob], nombreArchivo(), { type: 'image/png' });
+    } catch (err) {
+      avisar('No se pudo generar la imagen');
+      return;
+    }
+    if (navigator.canShare && navigator.canShare({ files: [archivo] }) && navigator.share) {
+      navigator.share({
+        files: [archivo],
+        title: 'Estatus de flotilla LOGIINN',
+        text: 'Estatus de flotilla · ' + fechaCorte()
+      }).catch(function (err) {
+        if (err && err.name === 'AbortError') return;
+        descargar(blob);
+        avisar('Imagen descargada');
+      });
+    } else {
+      descargar(blob);
+      avisar('Imagen descargada, ya puedes adjuntarla');
+    }
+  });
+
+  $('btn-copiar').addEventListener('click', function () {
+    var txt = textoReporte();
+    function respaldo() {
+      var ta = document.createElement('textarea');
+      ta.value = txt;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      document.body.removeChild(ta);
+      avisar(ok ? 'Reporte copiado' : 'No se pudo copiar en este navegador');
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(function () { avisar('Reporte copiado'); }, respaldo);
+    } else respaldo();
+  });
+
+  /* ================= ARRANQUE ================= */
+  Promise.all([leer(CLAVE), leer(CLAVE_TUT)]).then(function (r) {
+    var d = null;
+    try { d = r[0] ? JSON.parse(r[0]) : null; } catch (e) { d = null; }
+    if (!Array.isArray(d)) d = null;
+    if (d) {
+      for (var i = 0; i < d.length; i++) {
+        if (d[i].estatus === 'ocupado' || d[i].estatus === 'en_ruta') d[i].estatus = 'transito_cedis';
+      }
+    }
+    unidades = d && d.length ? d : semilla();
+    if (!d) guardar();
+    ir('unidades');
+    if (!r[1]) abrirTutorial();
+  });
+})();
+</script>
+
+<style>
+  /* Ajustes para pantalla completa en el celular (notch / barra de gestos) */
+  #app-root .barra { padding-top: calc(12px + env(safe-area-inset-top)); }
+  #app-root .tut-fondo { padding-top: calc(16px + env(safe-area-inset-top)); }
+</style>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>
