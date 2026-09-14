@@ -81,6 +81,7 @@
     .unidad[data-st="disponible"] { border-left-color: var(--verde); }
     .unidad[data-st="no_disponible"] { border-left-color: var(--gris); }
     .unidad[data-st="transito_proveedor"] { border-left-color: var(--naranja); }
+    .unidad[data-st="en_proveedor"] { border-left-color: #6B4A9E; }
     .unidad[data-st="transito_cedis"] { border-left-color: var(--marino); }
     .unidad[data-st="espera_asistencia"] { border-left-color: var(--rojo); }
 
@@ -105,12 +106,12 @@
       padding: 11px 8px; font-size: 12.5px; font-weight: 650; line-height: 1.3;
       cursor: pointer; min-height: 52px; text-align: center;
     }
-    .op:last-child { grid-column: 1 / -1; }
     .op:active { background: #EEF1F6; }
     .op[aria-pressed="true"] { color: #fff; }
     .op[data-v="disponible"][aria-pressed="true"] { background: var(--verde); }
     .op[data-v="no_disponible"][aria-pressed="true"] { background: var(--gris); }
     .op[data-v="transito_proveedor"][aria-pressed="true"] { background: var(--naranja); }
+    .op[data-v="en_proveedor"][aria-pressed="true"] { background: #6B4A9E; }
     .op[data-v="transito_cedis"][aria-pressed="true"] { background: var(--marino); }
     .op[data-v="espera_asistencia"][aria-pressed="true"] { background: var(--rojo); }
     .op:focus-visible { outline: 3px solid var(--marino); outline-offset: -3px; }
@@ -161,6 +162,7 @@
     .chip[data-st="disponible"] { background: var(--verde); }
     .chip[data-st="no_disponible"] { background: var(--gris); }
     .chip[data-st="transito_proveedor"] { background: var(--naranja); }
+    .chip[data-st="en_proveedor"] { background: #6B4A9E; }
     .chip[data-st="transito_cedis"] { background: var(--marino); }
     .chip[data-st="espera_asistencia"] { background: var(--rojo); }
     .chip[data-st="sin"] { background: #98A2B3; }
@@ -416,7 +418,8 @@
     { v: 'disponible', t: 'Disponible', c: '#1E7A48' },
     { v: 'no_disponible', t: 'No disponible', c: '#67758F' },
     { v: 'transito_proveedor', t: 'En tránsito a proveedor', c: '#EE7623' },
-    { v: 'transito_cedis', t: 'En tránsito a CEDIS con carga', c: '#1B3A75' },
+    { v: 'en_proveedor', t: 'En proveedor', c: '#6B4A9E' },
+    { v: 'transito_cedis', t: 'En tránsito a CEDIS', c: '#1B3A75' },
     { v: 'espera_asistencia', t: 'En espera de asistencia', c: '#B3261E' }
   ];
   var unidades = [];
@@ -615,7 +618,7 @@
       titulo: 'Toca el estatus de cada unidad',
       html: function () {
         return '<p>Cada tarjeta es una unidad. Arriba ves el número, el operador asignado y la placa del tracto. Abajo toca el estatus que corresponda.</p>' +
-          '<div class="tut-demo">' + demoTarjeta() + '<p class="menor" style="margin:10px 0 0">Pruébalo aquí: toca cualquiera de los cinco.</p></div>' +
+          '<div class="tut-demo">' + demoTarjeta() + '<p class="menor" style="margin:10px 0 0">Pruébalo aquí: toca cualquiera de los seis.</p></div>' +
           '<p class="menor">Si te equivocaste, toca el mismo botón otra vez y la unidad vuelve a quedar sin marcar. La franja de color del lado izquierdo te dice de un vistazo cómo quedó.</p>';
       }
     },
@@ -626,8 +629,9 @@
           '<ul class="tut-lista">' +
             '<li><span class="tut-marca" style="background:#1E7A48"></span><div><b>Disponible</b><span>Unidad y operador listos en patio para que se les asigne viaje.</span></div></li>' +
             '<li><span class="tut-marca" style="background:#67758F"></span><div><b>No disponible</b><span>Fuera de operación: descanso del operador, taller, mantenimiento o sin operador asignado.</span></div></li>' +
-            '<li><span class="tut-marca" style="background:#EE7623"></span><div><b>En tránsito a proveedor</b><span>Va en camino a recoger producto. Todavía sin carga.</span></div></li>' +
-            '<li><span class="tut-marca" style="background:#1B3A75"></span><div><b>En tránsito a CEDIS con carga</b><span>Ya cargó y va rumbo al centro de distribución para entregar.</span></div></li>' +
+            '<li><span class="tut-marca" style="background:#EE7623"></span><div><b>En tránsito a proveedor</b><span>Va en camino a recoger producto. Todavía no llega.</span></div></li>' +
+            '<li><span class="tut-marca" style="background:#6B4A9E"></span><div><b>En proveedor</b><span>Ya llegó con el proveedor: está formada, cargando o esperando documentos.</span></div></li>' +
+            '<li><span class="tut-marca" style="background:#1B3A75"></span><div><b>En tránsito a CEDIS</b><span>Va rumbo al centro de distribución, con carga o con la caja vacía.</span></div></li>' +
             '<li><span class="tut-marca" style="background:#B3261E"></span><div><b>En espera de asistencia</b><span>Detenida en ruta por falla, accidente o cualquier motivo que requiera apoyo. Avisa de inmediato a tráfico.</span></div></li>' +
           '</ul>';
       }
@@ -639,7 +643,7 @@
           '<div class="tut-demo tut-tabla" style="padding:0;overflow:hidden">' +
             '<table><thead><tr><th>Operador</th><th>Unidad</th><th>Placa</th><th>Estatus</th></tr></thead><tbody>' +
             '<tr><td>Juan Ramírez</td><td class="col-unidad">T-101</td><td class="col-placa">92AF7H</td><td><span class="chip" data-st="disponible">Disponible</span></td></tr>' +
-            '<tr><td>Miguel Á. Soto</td><td class="col-unidad">T-102</td><td class="col-placa">84KD2P</td><td><span class="chip" data-st="transito_cedis">En tránsito a CEDIS con carga</span></td></tr>' +
+            '<tr><td>Miguel Á. Soto</td><td class="col-unidad">T-102</td><td class="col-placa">84KD2P</td><td><span class="chip" data-st="transito_cedis">En tránsito a CEDIS</span></td></tr>' +
             '<tr><td>Ricardo Vega</td><td class="col-unidad">T-103</td><td class="col-placa">55JN9R</td><td><span class="chip" data-st="espera_asistencia">En espera de asistencia</span></td></tr>' +
             '</tbody></table>' +
           '</div>' +
