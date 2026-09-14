@@ -1,7 +1,7 @@
 /* Service worker — Control de flotilla LOGIINN
    Sube la version cada vez que cambies index.html para que los
    telefonos reciban la actualizacion. */
-var VERSION = 'flotilla-v3';
+var VERSION = 'flotilla-v4';
 var ARCHIVOS = [
   './',
   './index.html',

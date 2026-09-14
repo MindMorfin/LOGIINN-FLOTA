@@ -195,6 +195,46 @@
     }
     .aviso-toast.visible { opacity: 1; }
 
+    /* ---------- Aviso de instalación ---------- */
+    .instalar {
+      background: var(--papel); border: 1px solid var(--linea);
+      border-left: 7px solid var(--naranja); border-radius: 4px;
+      padding: 12px; margin-bottom: 12px;
+      display: flex; align-items: center; gap: 11px;
+    }
+    .instalar svg.icono-inst { width: 26px; height: 26px; color: var(--naranja); flex: none; }
+    .instalar .txt { flex: 1; min-width: 0; }
+    .instalar b { display: block; font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+    .instalar span { font-size: 12.5px; color: var(--tinta-suave); line-height: 1.35; }
+    .instalar .btn { padding: 11px 15px; min-height: 44px; font-size: 14px; }
+    .cerrar-aviso {
+      background: none; border: 0; color: var(--tinta-suave);
+      font-size: 22px; line-height: 1; cursor: pointer; padding: 4px 2px; flex: none;
+    }
+
+    .sel-plataforma { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--linea); border: 1px solid var(--linea); border-radius: 5px; overflow: hidden; margin-bottom: 14px; }
+    .sel-plataforma button {
+      background: var(--papel); border: 0; padding: 12px 6px; min-height: 46px;
+      font-size: 14px; font-weight: 650; color: var(--tinta-suave); cursor: pointer;
+    }
+    .sel-plataforma button[aria-pressed="true"] { background: var(--marino); color: #fff; }
+    ol.pasos-inst { margin: 0 0 12px; padding: 0 0 0 4px; list-style: none; counter-reset: pi; }
+    ol.pasos-inst li {
+      counter-increment: pi; position: relative; padding: 0 0 14px 40px;
+      font-size: 14px; line-height: 1.5;
+    }
+    ol.pasos-inst li::before {
+      content: counter(pi); position: absolute; left: 0; top: -1px;
+      width: 26px; height: 26px; border-radius: 50%;
+      background: var(--marino); color: #fff;
+      font-size: 13px; font-weight: 700;
+      display: grid; place-items: center;
+    }
+    .nota-inst {
+      background: #FFF4EA; border: 1px solid #F6D4B4; border-radius: 4px;
+      padding: 10px 12px; font-size: 12.5px; line-height: 1.45; color: #7A4410; margin-bottom: 12px;
+    }
+
     /* ---------- Tutorial ---------- */
     .tut-fondo {
       position: fixed; inset: 0; z-index: 60;
@@ -268,6 +308,18 @@
   </div>
 
   <div class="pantalla" id="vista-unidades">
+    <div class="instalar oculto" id="banner-instalar">
+      <svg class="icono-inst" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="6" y="2" width="12" height="20" rx="2"></rect>
+        <path d="M12 7v7"></path><polyline points="9 11 12 14 15 11"></polyline>
+      </svg>
+      <div class="txt">
+        <b>Instálala en tu teléfono</b>
+        <span>Se abre desde un icono y funciona sin internet.</span>
+      </div>
+      <button class="btn" id="btn-instalar">Instalar</button>
+      <button class="cerrar-aviso" id="btn-cerrar-banner" aria-label="Ocultar aviso">&times;</button>
+    </div>
     <p class="aviso">Marca el estatus de cada unidad y genera el reporte.</p>
     <div id="lista-unidades"></div>
   </div>
@@ -326,6 +378,21 @@
 
   <div class="aviso-toast" id="toast"></div>
 
+  <div class="tut-fondo oculto" id="guia-instalar" role="dialog" aria-modal="true" aria-label="Cómo instalar la app">
+    <div class="tut-caja">
+      <div class="tut-cuerpo" style="padding-top: 18px">
+        <h2>Instalar en tu teléfono</h2>
+        <p class="menor">Al instalarla se abre desde un icono propio, a pantalla completa y sin barra de direcciones. También funciona sin señal.</p>
+        <div class="sel-plataforma">
+          <button data-plat="android" aria-pressed="true">Android</button>
+          <button data-plat="ios" aria-pressed="false">iPhone</button>
+        </div>
+        <div id="pasos-instalar"></div>
+      </div>
+      <div class="tut-pie"><button class="btn" id="cerrar-guia" style="flex:1">Entendido</button></div>
+    </div>
+  </div>
+
   <div class="tut-fondo oculto" id="tutorial" role="dialog" aria-modal="true" aria-label="Cómo usar el control de flotilla">
     <div class="tut-caja">
       <div class="tut-top">
@@ -371,6 +438,7 @@
     set: function (k, v) { try { window.localStorage.setItem(k, v); return true; } catch (e) { return false; } }
   };
   function leer(clave) { return Promise.resolve(almacen.get(clave)); }
+  function escribir(clave, valor) { almacen.set(clave, valor); }
   function guardar() {
     var ok = almacen.set(CLAVE, JSON.stringify(unidades));
     if (!ok) avisar('No se pudieron guardar los cambios en este dispositivo');
@@ -591,7 +659,8 @@
             '<li><span class="tut-marca" style="background:#EE7623"></span><div><b>Agregar unidad</b><span>Hasta abajo llena los tres campos y toca Agregar unidad. El número es obligatorio.</span></div></li>' +
             '<li><span class="tut-marca" style="background:#B3261E"></span><div><b>Eliminar</b><span>Quita las unidades que ya no estén en la flotilla. Te pide confirmación porque no se puede deshacer.</span></div></li>' +
           '</ul>' +
-          '<p class="menor">Las tres unidades de ejemplo (T-101 a T-103) son solo de muestra: edítalas o elimínalas y captura las tuyas. Todo queda guardado en este teléfono.</p>';
+          '<p class="menor">Las tres unidades de ejemplo (T-101 a T-103) son solo de muestra: edítalas o elimínalas y captura las tuyas. Todo queda guardado en este teléfono.</p>' +
+          (estaInstalada() ? '' : '<button class="btn-sec" data-guia-inst style="width:100%">Cómo instalarla en tu teléfono</button>');
       }
     }
   ];
@@ -636,6 +705,7 @@
   $('btn-ayuda').addEventListener('click', abrirTutorial);
 
   $('tut-cuerpo').addEventListener('click', function (ev) {
+    if (ev.target.closest('[data-guia-inst]')) { cerrarTutorial(); abrirGuiaInstalar(); return; }
     var b = ev.target.closest('[data-demo]');
     if (!b) return;
     var v = b.getAttribute('data-demo');
@@ -942,6 +1012,101 @@
     } else respaldo();
   });
 
+  /* ================= INSTALACIÓN ================= */
+  var CLAVE_BANNER = 'flotilla:banner-instalar';
+  var promptDiferido = null;
+
+  function estaInstalada() {
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      window.navigator.standalone === true;
+  }
+
+  function esIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+
+  var PASOS_INST = {
+    android: [
+      'Abre esta página en <b>Chrome</b>.',
+      'Toca el menú de los tres puntos, arriba a la derecha.',
+      'Elige <b>Instalar aplicación</b> (o “Agregar a pantalla principal”).',
+      'Confirma con <b>Instalar</b>. El icono queda junto a tus demás apps.'
+    ],
+    ios: [
+      'Abre esta página en <b>Safari</b>. Desde Chrome en iPhone no se puede instalar.',
+      'Toca el botón de <b>compartir</b>: el cuadrito con la flecha hacia arriba.',
+      'Desliza la lista y elige <b>Agregar a pantalla de inicio</b>.',
+      'Toca <b>Agregar</b>, arriba a la derecha.'
+    ]
+  };
+
+  function pintarPasosInst(plat) {
+    var b = $('guia-instalar').querySelectorAll('[data-plat]');
+    for (var i = 0; i < b.length; i++) {
+      b[i].setAttribute('aria-pressed', b[i].getAttribute('data-plat') === plat ? 'true' : 'false');
+    }
+    var lista = PASOS_INST[plat], h = '<ol class="pasos-inst">';
+    for (var j = 0; j < lista.length; j++) h += '<li>' + lista[j] + '</li>';
+    h += '</ol>';
+    if (plat === 'ios') {
+      h += '<div class="nota-inst">En iPhone la opción solo aparece en Safari. Si no la ves, revisa que no estés en una ventana privada.</div>';
+    } else {
+      h += '<div class="nota-inst">Si usas computadora, el icono de instalar aparece del lado derecho de la barra de direcciones en Chrome o Edge.</div>';
+    }
+    $('pasos-instalar').innerHTML = h;
+  }
+
+  function abrirGuiaInstalar() {
+    pintarPasosInst(esIOS() ? 'ios' : 'android');
+    $('guia-instalar').classList.remove('oculto');
+  }
+
+  function revisarBanner() {
+    if (estaInstalada()) { $('banner-instalar').classList.add('oculto'); return; }
+    leer(CLAVE_BANNER).then(function (v) {
+      if (v === 'oculto' || estaInstalada()) return;
+      $('banner-instalar').classList.remove('oculto');
+    });
+  }
+
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    promptDiferido = e;
+  });
+
+  window.addEventListener('appinstalled', function () {
+    promptDiferido = null;
+    $('banner-instalar').classList.add('oculto');
+    avisar('App instalada');
+  });
+
+  $('btn-instalar').addEventListener('click', function () {
+    if (promptDiferido) {
+      promptDiferido.prompt();
+      promptDiferido.userChoice.then(function (r) {
+        if (r && r.outcome === 'accepted') $('banner-instalar').classList.add('oculto');
+        promptDiferido = null;
+      });
+    } else {
+      abrirGuiaInstalar();
+    }
+  });
+
+  $('btn-cerrar-banner').addEventListener('click', function () {
+    $('banner-instalar').classList.add('oculto');
+    escribir(CLAVE_BANNER, 'oculto');
+  });
+
+  $('cerrar-guia').addEventListener('click', function () {
+    $('guia-instalar').classList.add('oculto');
+  });
+
+  $('guia-instalar').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-plat]');
+    if (b) pintarPasosInst(b.getAttribute('data-plat'));
+  });
+
   /* ================= ARRANQUE ================= */
   Promise.all([leer(CLAVE), leer(CLAVE_TUT)]).then(function (r) {
     var d = null;
@@ -956,6 +1121,7 @@
     if (!d) guardar();
     ir('unidades');
     if (!r[1]) abrirTutorial();
+    revisarBanner();
   });
 })();
 </script>
